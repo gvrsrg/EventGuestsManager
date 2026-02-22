@@ -3,8 +3,8 @@ from fastapi import HTTPException
 from sqlmodel import Session
 from sqlalchemy import select, func, update
 
-from ..models import Event, EventParticipant, RideMatch
-from ..enums import (
+from app.models import Event, EventParticipant, RideMatch
+from app.enums import (
     ParticipationStatus, RideMode, RideMatchStatus,
     EventJoinPolicy
 )
@@ -13,7 +13,7 @@ def _ensure_organizer(session: Session, event_id: UUID, user_id: UUID) -> Event:
     event = session.exec(select(Event).where(Event.id == event_id)).one_or_none()
     if not event:
         raise HTTPException(404, "Event not found")
-    if event.created_by != user_id:
+    if event.created_by_id != user_id:
         raise HTTPException(403, "Forbidden")
     return event
 
@@ -35,7 +35,7 @@ def set_participant_status(session: Session, event_id: UUID, organizer_id: UUID,
     ).one_or_none()
     if not event:
         raise HTTPException(404, "Event not found")
-    if event.created_by != organizer_id:
+    if event.created_by_id != organizer_id:
         raise HTTPException(403, "Forbidden")
 
     p = session.exec(
@@ -45,7 +45,8 @@ def set_participant_status(session: Session, event_id: UUID, organizer_id: UUID,
     ).one_or_none()
     if not p:
         raise HTTPException(404, "Participant not found")
-
+    if p.status == ParticipationStatus.CANCELED:
+        raise HTTPException(400, "Cannot change status of canceled participant")
     if next_status == ParticipationStatus.APPROVED:
         if event.capacity is not None:
             approved = session.exec(

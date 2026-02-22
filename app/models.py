@@ -1,13 +1,13 @@
 from __future__ import annotations
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, List
 from uuid import UUID, uuid4
 
-from sqlmodel import SQLModel, Field, Index
+from sqlmodel import SQLModel, Field, Index, Relationship
 from sqlalchemy import Column, Text, DateTime, Integer, CheckConstraint, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ENUM
 
-from enums import (
+from app.enums import (
     EventJoinPolicy, EventStatus,
     ParticipationStatus, RideMode,
     RideMatchStatus,
@@ -20,16 +20,20 @@ class User(SQLModel, table=True):
     email: str = Field(sa_column=Column(Text, unique=True, nullable=False))
     phone: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
+    #events: list["Event"] = Relationship(back_populates="created_by")
 
 class Event(SQLModel, table=True):
     __tablename__ = "events"
     __table_args__ = (Index("idx_events_start_at", "start_at"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_by: UUID = Field(nullable=False, index=True)
+    created_by_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    #created_by: Optional[User] = Relationship(back_populates="events")
+    #created_by: Optional["User"] = Relationship()
+    madrich: UUID = Field(foreign_key="users.id", nullable=False, index=True)
 
     title: str = Field(sa_column=Column(Text, nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
@@ -52,11 +56,11 @@ class Event(SQLModel, table=True):
     )
 
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False),
     )
 
@@ -93,11 +97,11 @@ class EventParticipant(SQLModel, table=True):
     notes: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
 
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False),
     )
 
@@ -122,10 +126,10 @@ class RideMatch(SQLModel, table=True):
     created_by: UUID = Field(index=True)
 
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False),
     )

@@ -3,8 +3,8 @@ from fastapi import HTTPException
 from sqlmodel import Session
 from sqlalchemy import select, func, update
 
-from ..models import Event, EventParticipant, RideMatch
-from ..enums import (
+from app.models import Event, EventParticipant, RideMatch
+from app.enums import (
     EventJoinPolicy, EventStatus,
     ParticipationStatus, RideMode,
     RideMatchStatus,

@@ -1,30 +1,45 @@
 from uuid import UUID
 from fastapi import FastAPI, Depends, HTTPException
 from sqlmodel import Session, select
+from sqlalchemy import text
+from sqlalchemy.orm import selectinload
+from contextlib import asynccontextmanager
 
-from .db import get_session, init_db
-from .deps import get_current_user_id
-from .models import Event
-from .enums import EventStatus, ParticipationStatus
-from .schemas import (
+from app.db import get_session, init_db, engine
+from app.deps import get_current_user_id
+from app.models import Event
+from app.enums import EventStatus, ParticipationStatus
+from app.schemas import (
     EventCreate, JoinEvent, UpdateMyParticipation,
     RideMatchCreate, RideMatchUpdate, OrganizerParticipantOut, EventStatsOut
 )
-from .services.participants import join_event, leave_event, update_my_participation
-from .services.rides import create_match, update_match_status, list_matches, suggestions
-from .services.organizer import list_participants, set_participant_status, event_stats
+from app.services.participants import join_event, leave_event, update_my_participation
+from app.services.rides import create_match, update_match_status, list_matches, suggestions
+from app.services.organizer import list_participants, set_participant_status, event_stats
 
-app = FastAPI(title="Event + Rides (SQLModel)")
+#app = FastAPI(title="Event + Rides (SQLModel)")
 
-@app.on_event("startup")
-def on_startup():
-    # In production use Alembic migrations instead of create_all.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    # Option A (dev): auto create tables
     init_db()
+
+    # Option B (always useful): verify DB is reachable
+    with Session(engine) as session:
+        session.exec(text("SELECT 1"))
+
+    yield
+
+    # ---- Shutdown ----
+    # nothing yet (place for cache close, redis, etc.)
+
+app = FastAPI(title="Event + Rides (SQLModel)", lifespan=lifespan)
 
 @app.post("/events")
 def create_event(payload: EventCreate, session: Session = Depends(get_session), user_id: UUID = Depends(get_current_user_id)):
     e = Event(
-        created_by=user_id,
+        created_by_id=payload.created_by_id,
         title=payload.title,
         description=payload.description,
         start_at=payload.start_at,
@@ -46,7 +61,7 @@ def publish_event(event_id: UUID, session: Session = Depends(get_session), user_
     e = session.exec(select(Event).where(Event.id == event_id)).one_or_none()
     if not e:
         raise HTTPException(404, "Event not found")
-    if e.created_by != user_id:
+    if e.created_by_id != user_id:
         raise HTTPException(403, "Forbidden")
     e.status = EventStatus.PUBLISHED
     session.add(e)
@@ -56,8 +71,12 @@ def publish_event(event_id: UUID, session: Session = Depends(get_session), user_
 
 @app.get("/events")
 def list_events(session: Session = Depends(get_session)):
-    return session.exec(select(Event).order_by(Event.start_at.asc())).all()
-
+    stmt = (
+        select(Event)
+        #.options(selectinload(Event.created_by_id))   # eager load creator
+        .order_by(Event.start_at.asc())
+    )
+    return session.exec(stmt).all()
 @app.get("/events/{event_id}")
 def get_event(event_id: UUID, session: Session = Depends(get_session)):
     e = session.exec(select(Event).where(Event.id == event_id)).one_or_none()

@@ -3,8 +3,8 @@ from fastapi import HTTPException
 from sqlmodel import Session
 from sqlalchemy import select, func
 
-from ..models import EventParticipant, RideMatch
-from ..enums import ParticipationStatus, RideMode, RideMatchStatus
+from app.models import EventParticipant, RideMatch
+from app.enums import ParticipationStatus, RideMode, RideMatchStatus
 
 def _accepted_count(session: Session, event_id: UUID, driver_pid: UUID) -> int:
     stmt = select(func.count()).select_from(RideMatch).where(

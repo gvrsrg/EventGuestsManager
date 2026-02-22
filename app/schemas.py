@@ -3,7 +3,28 @@ from typing import Optional
 from uuid import UUID
 from sqlmodel import SQLModel, Field
 
-from enums import EventJoinPolicy, RideMode, RideMatchStatus, ParticipationStatus
+from .enums import EventJoinPolicy, RideMode, RideMatchStatus, ParticipationStatus, EventStatus
+
+class UserRead(SQLModel):
+    id: UUID
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+
+class EventRead(SQLModel):
+    id: UUID
+    created_by: UserRead  # <-- nested object
+    madrich: UserRead  # <-- nested object
+    title: str
+    description: Optional[str] = None
+    start_at: datetime
+    end_at: Optional[datetime] = None
+    location_name: str
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    capacity: Optional[int] = None
+    join_policy: EventJoinPolicy
+    status: EventStatus
 
 class EventCreate(SQLModel):
     title: str
@@ -15,6 +36,8 @@ class EventCreate(SQLModel):
     location_lng: Optional[float] = None
     capacity: Optional[int] = Field(default=None, ge=1)
     join_policy: EventJoinPolicy
+    created_by_id: UUID
+    madrich: UUID
 
 class JoinEvent(SQLModel):
     ride_mode: RideMode
